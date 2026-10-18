@@ -228,6 +228,7 @@ def get_deal_keyboard(order_id: str, lang: str) -> InlineKeyboardMarkup:
 
 @dp.business_message(F.text.startswith("+rep "))
 async def cmd_rep_business(message: types.Message):
+    print(f"[OFFER] received: {message.text}")
     args = message.text.split()
     if len(args) < 3:
         try:
@@ -307,6 +308,7 @@ async def cmd_rep_business(message: types.Message):
             ),
             parse_mode="HTML"
         )
+        print(f"[OFFER] sent successfully")
     except Exception as e:
         print(f"[SEND ERROR] {e}")
 
