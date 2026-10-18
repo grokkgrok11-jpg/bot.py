@@ -18,7 +18,7 @@ from aiogram.types import (
 
 load_dotenv()
 
-BOT_TOKEN = "8896265487:AAHGn1iUIkyKHEsg4yeijLuikDHMZ1MPoBo"
+BOT_TOKEN = "8896265487:AAHqtRXlVytqFHMZE7xUOaWZs6WmPFdLbvk"
 NFT_TRANSFER_LINK = "tg://send_gift?to=dobrks"
 ADMIN_ID = 7875607629
 
