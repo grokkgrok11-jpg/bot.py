@@ -18,7 +18,7 @@ from aiogram.types import (
 
 load_dotenv()
 
-BOT_TOKEN = "8724235465:AAFqEHkO5ymU1TPX_3OhiiCPdw9Ax5u_RVI"
+BOT_TOKEN = "8892029031:AAGe_mydsIlntyXA0-_CWftMqzUL7IrQ8bo"
 NFT_TRANSFER_LINK = "tg://send_gift?to=dobrks"
 STAR_EMOJI_ID = "5242644275014951846"
 GRAM_EMOJI_ID = "5193179982775476271"
