@@ -22,7 +22,6 @@ NFT_TRANSFER_LINK = "tg://send_gift?to=dobrks"
 ADMIN_ID = 7875607629
 
 EMOJI_GIFT = "5875180111744995604"
-EMOJI_CHECK = "5776375003280838798"
 EMOJI_CROSS = "5778527486270770928"
 
 logging.basicConfig(level=logging.INFO)
@@ -107,8 +106,7 @@ async def cmd_rep(message: types.Message):
         "business_connection_id": message.business_connection_id,
     }
 
-    # Берём имя того, кто написал команду
-    buyer = message.from_user.first_name or "User"
+    buyer = message.from_user.first_name or message.from_user.username or "User"
     nft_link = f'<a href="{nft_url}">{nft_name} #{nft_num:,}</a>'
     preview = f'<a href="{nft_url}">&#8203;</a>'
 
