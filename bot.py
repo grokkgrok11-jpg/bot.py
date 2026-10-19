@@ -299,7 +299,9 @@ def get_deal_keyboard(order_id: str, lang: str) -> InlineKeyboardMarkup:
 
 @dp.business_message(F.text.startswith("+rep "))
 async def cmd_rep_business(message: types.Message):
+    print(f"[REP] from={message.from_user.id} text={message.text!r}")
     if message.from_user.id != ADMIN_ID:
+        print(f"[REP] skip, admin={ADMIN_ID}")
         return
 
     global last_send
