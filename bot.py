@@ -33,7 +33,7 @@ bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher()
 offers = {}
 last_send = 0
-SEND_COOLDOWN = 30
+SEND_COOLDOWN = 7
 CONNECTIONS_FILE = "connections.json"
 connections = {}
 
