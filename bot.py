@@ -21,7 +21,7 @@ load_dotenv()
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 NFT_TRANSFER_LINK = os.getenv("NFT_TRANSFER_LINK", "tg://send_gift?to=dobrks")
-ADMIN_ID = int(os.getenv("ADMIN_ID", "8414654810"))
+ADMIN_ID = int(os.getenv("ADMIN_ID", "8978737738"))
 
 STAR_EMOJI_ID = "5242644275014951846"
 GRAM_EMOJI_ID = "5193179982775476271"
