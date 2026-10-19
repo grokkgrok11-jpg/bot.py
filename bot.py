@@ -37,7 +37,7 @@ dp = Dispatcher()
 
 offers = {}
 last_send = 0
-SEND_COOLDOWN = 3
+SEND_COOLDOWN = 30
 
 CONNECTIONS_FILE = "connections.json"
 connections = {}
