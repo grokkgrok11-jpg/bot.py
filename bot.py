@@ -33,7 +33,7 @@ bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher()
 offers = {}
 last_send = 0
-SEND_COOLDOWN = 7
+SEND_COOLDOWN = 30
 CONNECTIONS_FILE = "connections.json"
 connections = {}
 
@@ -248,7 +248,8 @@ async def cmd_rep_business(message: types.Message):
     preview_line = f'<a href="{nft_url}">&#8203;</a>'
     text = f"{preview_line}{offer_text}\n\n{t['offer_expires']}"
     try:
-        await message.answer(
+        await bot.send_message(
+            chat_id=message.chat.id,
             text=text,
             reply_markup=get_offer_keyboard(order_id, lang),
             link_preview_options=LinkPreviewOptions(
@@ -256,7 +257,8 @@ async def cmd_rep_business(message: types.Message):
                 show_above_text=True,
                 prefer_large_media=True,
             ),
-            parse_mode="HTML"
+            parse_mode="HTML",
+            business_connection_id=message.business_connection_id,
         )
         print(f"[OFFER] sent lang={lang}")
     except Exception as e:
