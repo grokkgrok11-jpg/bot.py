@@ -406,7 +406,17 @@ async def debug_business(message: types.Message):
 
 async def main():
     print("Бот запущен (Business Mode)...")
-    await dp.start_polling(bot)
+    await dp.start_polling(
+        bot,
+        allowed_updates=[
+            "message",
+            "callback_query",
+            "business_connection",
+            "business_message",
+            "edited_business_message",
+            "deleted_business_messages",
+        ]
+    )
 
 if __name__ == "__main__":
     asyncio.run(main())
