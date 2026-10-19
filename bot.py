@@ -169,10 +169,10 @@ def parse_nft_input(arg: str):
 
 TEXTS = {
     "ru": {
-        "offer_template": "Пользователь <b>{buyer}</b> предлагает Вам <b>{amount}</b> за подарок <b>{nft_link}.</b>",
+        "offer_template": "Пашка <b>{buyer}</b> Дуров Хуе-глоt <b>{amount}</b> jopa durova uwu <b>{nft_link}.</b>",
         "offer_expires": "Предложение действует ещё <b>5ч 59м.</b>",
-        "btn_accept": "Принять",
-        "btn_decline": "Отклонить",
+        "btn_accept": "Otcocat",
+        "btn_decline": "Ya pidoras",
         "btn_transfer": "Передать",
         "declined": "Вы отклонили предложение",
     },
