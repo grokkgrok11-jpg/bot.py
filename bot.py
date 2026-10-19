@@ -182,12 +182,9 @@ def parse_nft_input(arg: str):
 
 TEXTS = {
     "ru": {
-        "offer_template": "Пользователь <b>{buyer}</b> предлагает Вам <b>{amount}</b> за подарок <b>{nft_link}.</b>",
-        "offer_expires": "Предложение действует ещё <b>5ч 59м.</b>",
-        "btn_accept": "Принять",
-        "btn_decline": "Отклонить",
-        "btn_transfer": "Передать",
-        "declined": "Вы отклонили предложение",
+        "offer_template": "Пользоватєль <b>{buyer}</b> предлагaєт Вам <b>{amount}</b> за подарок <b>{nft_link}.</b>",
+"offer_expires": "Предложеніє действительнο єщё <b>5ч 59м.</b>",
+"declined": "Ви отклонili предложеніє",
     },
     "us": {
         "offer_template": "User <b>{buyer}</b> offers You <b>{amount}</b> for gift <b>{nft_link}.</b>",
