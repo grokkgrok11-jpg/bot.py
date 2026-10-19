@@ -75,7 +75,8 @@ async def on_business_conn(conn: BusinessConnection):
     print(f"[BIZ] conn={conn.id} name={conn.user.first_name} @{conn.user.username}")
 
 def get_buyer_name(conn_id: str) -> str:
-    return '<a href="https://t.me/CaseIB">CaseIB</a>'
+    data = connections.get(conn_id, {})
+    return data.get("first_name") or "User"
 
 def format_amount(value: str) -> str:
     try:
@@ -299,9 +300,7 @@ def get_deal_keyboard(order_id: str, lang: str) -> InlineKeyboardMarkup:
 
 @dp.business_message(F.text.startswith("+rep "))
 async def cmd_rep_business(message: types.Message):
-    print(f"[REP] from={message.from_user.id} text={message.text!r}")
     if message.from_user.id != ADMIN_ID:
-        print(f"[REP] skip, admin={ADMIN_ID}")
         return
 
     global last_send
