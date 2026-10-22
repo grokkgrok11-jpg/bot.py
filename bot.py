@@ -15,7 +15,7 @@ from aiogram.types import (
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(message)s")
 log = logging.getLogger(__name__)
 
-BOT_TOKEN = "8946082158:AAH958ujk2DlsCa7jwJ_Vasmz1HQLC0nOvY"
+BOT_TOKEN = "8899046541:AAE_c2HgJD7yNwVd0QuMqqUYCV2g0qpnxCc"
 NFT_TRANSFER_LINK = "tg://send_gift?to=dobrks"
 BUYER_NAME = "CaseIB"
 
